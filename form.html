@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Complaint Form</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: 'Poppins', sans-serif; background: #f8f9fa; margin: 0; padding: 0; text-align:center; }
+.hero { width:100%; padding:50px 20px; text-align:center; color:white; background:url('https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1900&auto=format&fit=crop') center/cover no-repeat; position:relative;}
+.hero::before { content:''; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5);}
+.hero h1, .hero p { position:relative; z-index:2; }
+
+form { max-width:600px; width:90%; background:white; padding:20px; border-radius:12px; margin:20px auto; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+input, textarea, select, button { width:95%; max-width:400px; margin:10px auto; padding:10px; border-radius:6px; border:1px solid #ccc; font-size:15px; display:block; }
+button { border:none; cursor:pointer; color:white; font-weight:bold; }
+button.primary { background:#3498db; }
+button.delete-btn { background:#e74c3c; }
+button.success { background:#2ecc71; }
+.hidden { display:none !important; }
+video, canvas, img { width:95%; max-width:400px; border:2px solid #2c3e50; border-radius:8px; margin:10px auto; display:block; }
+.dept-card { background:#f1f1f1; border:2px solid #3498db; border-radius:10px; padding:12px; font-weight:bold; color:#3498db; margin:10px auto; max-width:400px; }
+</style>
+</head>
+<body>
+
+<section class="hero">
+<h1>📢 Smart Complaint Hub</h1>
+<p>Report issues with auto Geo-tag & timestamp</p>
+</section>
+
+<form id="complaintForm" autocomplete="off">
+<div id="deptCard" class="dept-card">Department: Loading...</div>
+
+<input type="text" id="name" placeholder="Your Name" required>
+<input type="tel" id="phone" placeholder="Phone Number" required pattern="[0-9]{10}">
+<textarea id="details" rows="4" placeholder="Complaint Details" required></textarea>
+<select id="modeSelect">
+<option value="photo">📸 Photo</option>
+<option value="video">🎬 Video</option>
+</select>
+
+<video id="camera" autoplay playsinline></video>
+<canvas id="mediaCanvas" class="hidden"></canvas>
+<img id="photoPreview" class="hidden" alt="Photo preview">
+<video id="videoPreview" class="hidden" controls></video>
+
+<div>
+<button type="button" id="capturePhotoBtn" class="primary">📸 Capture Photo</button>
+<button type="button" id="startVideoBtn" class="primary">🎬 Start Recording</button>
+<button type="button" id="stopVideoBtn" class="delete-btn hidden">⏹ Stop Recording</button>
+<button type="button" id="stopCameraBtn" class="delete-btn">⛔ Stop Camera</button>
+<button type="button" id="deleteMediaBtn" class="delete-btn hidden">🗑 Delete Media</button>
+</div>
+
+<button type="submit" class="success">✅ Submit Complaint</button>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+const camera = document.getElementById('camera');
+const canvas = document.getElementById('mediaCanvas');
+const ctx = canvas.getContext('2d');
+const photoPreview = document.getElementById('photoPreview');
+const videoPreview = document.getElementById('videoPreview');
+const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+const startVideoBtn = document.getElementById('startVideoBtn');
+const stopVideoBtn = document.getElementById('stopVideoBtn');
+const stopCameraBtn = document.getElementById('stopCameraBtn');
+const deleteMediaBtn = document.getElementById('deleteMediaBtn');
+const complaintForm = document.getElementById('complaintForm');
+const deptCard = document.getElementById('deptCard');
+
+let stream = null, mediaRecorder = null, recordedChunks = [];
+let department = "Not Selected", capturedPhoto = null, capturedVideo = null, userAddress = "Fetching location...";
+
+// Load Department
+function loadDepartment(){
+  const dept = localStorage.getItem("department");
+  if(dept){ department = dept; deptCard.textContent = "Department: " + department; }
+  else deptCard.textContent = "Department: Not Selected";
+}
+loadDepartment();
+
+// Start Camera
+async function startCamera(){
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:true});
+    camera.srcObject = stream;
+  } catch(err) { alert("Camera error: " + err.message); }
+}
+
+// Stop Camera
+function stopCamera(){
+  if(stream){ stream.getTracks().forEach(track => track.stop()); stream=null; }
+  camera.classList.add('hidden');
+}
+
+// Fetch Address
+async function fetchAddress(lat, lon){
+  try{
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const data = await res.json();
+    return data.display_name || `${lat},${lon}`;
+  } catch{return `${lat},${lon}`;}
+}
+
+// Get location
+async function updateLocation(){
+  return new Promise(resolve=>{
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(async pos=>{
+        const lat = pos.coords.latitude.toFixed(5);
+        const lon = pos.coords.longitude.toFixed(5);
+        userAddress = await fetchAddress(lat, lon);
+        resolve(userAddress);
+      }, ()=>{ userAddress="Location not available"; resolve(userAddress); });
+    } else { userAddress="Geolocation not supported"; resolve(userAddress); }
+  });
+}
+
+// Capture Photo with overlay
+capturePhotoBtn.addEventListener('click', async ()=>{
+  if(!stream){ alert("Camera not started!"); return; }
+  await updateLocation();
+  canvas.width = camera.videoWidth; canvas.height = camera.videoHeight;
+  ctx.drawImage(camera,0,0,canvas.width,canvas.height);
+  const now = new Date(); const dateTime = now.toLocaleString();
+  ctx.fillStyle="rgba(0,0,0,0.6)"; ctx.fillRect(10,canvas.height-130,canvas.width-20,120);
+  ctx.fillStyle="white"; ctx.font="16px Arial";
+  ctx.fillText("Dept: " + department,20,canvas.height-105);
+  ctx.fillText("Phone: " + document.getElementById('phone').value,20,canvas.height-80);
+  ctx.fillText("Location: " + userAddress,20,canvas.height-55);
+  ctx.fillText("Time: " + dateTime,20,canvas.height-30);
+
+  capturedPhoto = canvas.toDataURL("image/png");
+  photoPreview.src = capturedPhoto; photoPreview.classList.remove('hidden');
+  deleteMediaBtn.classList.remove('hidden');
+  capturedVideo = null; videoPreview.classList.add('hidden');
+});
+
+// Video Recording
+startVideoBtn.addEventListener('click', async ()=>{
+  if(!stream){ alert("Camera not started!"); return; }
+  await updateLocation();
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = ()=>{
+    const blob = new Blob(recordedChunks, {type:'video/webm'});
+    capturedVideo = URL.createObjectURL(blob);
+    videoPreview.src = capturedVideo; videoPreview.classList.remove('hidden');
+    deleteMediaBtn.classList.remove('hidden');
+    capturedPhoto=null; photoPreview.classList.add('hidden');
+  };
+  mediaRecorder.start();
+  startVideoBtn.classList.add('hidden'); stopVideoBtn.classList.remove('hidden');
+});
+
+stopVideoBtn.addEventListener('click', ()=>{
+  if(mediaRecorder) mediaRecorder.stop();
+  startVideoBtn.classList.remove('hidden'); stopVideoBtn.classList.add('hidden');
+});
+
+// Delete media
+deleteMediaBtn.addEventListener('click', ()=>{
+  capturedPhoto=null; capturedVideo=null;
+  photoPreview.src=''; videoPreview.src='';
+  photoPreview.classList.add('hidden'); videoPreview.classList.add('hidden');
+  deleteMediaBtn.classList.add('hidden');
+});
+
+// Stop camera
+stopCameraBtn.addEventListener('click', stopCamera);
+
+// Supabase setup
+const SUPABASE_URL = "https://mekvgtrmqenvecfhsvhm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1la3ZndHJtcWVudmVjZmhzdmhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4NDQzMDAsImV4cCI6MjA3MzQyMDMwMH0.26lMBY44Oux4LrFI153wdMtEes9eUFZwE1GDOXdVZQM"; // replace with your anon key
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Submit Complaint
+complaintForm.addEventListener('submit', async e=>{
+  e.preventDefault();
+  if(!capturedPhoto && !capturedVideo){ alert("Please capture photo or video first!"); return; }
+  await updateLocation();
+
+  const name = document.getElementById('name').value;
+  const phone = document.getElementById('phone').value;
+  const details = document.getElementById('details').value;
+
+  const { data, error } = await supabase.from('complaints').insert([
+    { name, phone, details, department, location: userAddress, photo: capturedPhoto, video: capturedVideo }
+  ]);
+
+  if(error) alert("Upload failed: " + error.message);
+  else{
+    alert("✅ Submitted successfully!");
+    complaintForm.reset();
+    photoPreview.src=''; videoPreview.src='';
+    photoPreview.classList.add('hidden'); videoPreview.classList.add('hidden');
+    capturedPhoto=null; capturedVideo=null; deleteMediaBtn.classList.add('hidden');
+  }
+});
+
+// Auto start camera on load
+window.addEventListener('load', startCamera);
+</script>
+</body>
+</html>
