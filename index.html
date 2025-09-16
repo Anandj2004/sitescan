@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose Department</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+      padding: 30px 20px;
+      cursor: pointer;
+      transition: 0.3s;
+      text-decoration: none;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .card:hover {
+      transform: scale(1.08);
+      background: #eef6ff;
+    }
+    .icon {
+      font-size: 50px;
+      margin-bottom: 12px;
+      color: #4a90e2;
+    }
+    p {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>🚀 Choose Department</h2>
+  <div class="grid">
+    <div class="card" onclick="selectDept('Electricity')">
+      <div class="icon">💡</div>
+      <p>Electricity</p>
+    </div>
+    <div class="card" onclick="selectDept('Water')">
+      <div class="icon">💧</div>
+      <p>Water</p>
+    </div>
+    <div class="card" onclick="selectDept('Roads')">
+      <div class="icon">🛣</div>
+      <p>Roads</p>
+    </div>
+    <div class="card" onclick="selectDept('Drainage')">
+      <div class="icon">🚰</div>
+      <p>Drainage</p>
+    </div>
+    <div class="card" onclick="selectDept('Waste Management')">
+      <div class="icon">🚮</div>
+      <p>Waste</p>
+    </div>
+   <!-- <div class="card" onclick="selectDept('Health')">
+      <div class="icon">🏥</div>
+      <p>Health</p>
+    </div>
+    <div class="card" onclick="selectDept('Education')">
+      <div class="icon">📚</div>
+      <p>Education</p>
+    </div>
+    <div class="card" onclick="selectDept('Traffic')">
+      <div class="icon">🚦</div>
+      <p>Traffic</p>
+    </div>
+    <div class="card" onclick="selectDept('Environment')">
+      <div class="icon">🌳</div>
+      <p>Environment</p>
+    </div>
+    <div class="card" onclick="selectDept('Housing')">
+      <div class="icon">🏠</div>
+      <p>Housing</p>
+    </div>-->
+    <div class="card" onclick="selectDept('Other')">
+      <div class="icon">📌</div>
+      <p>Other</p>
+    </div>
+  </div>
+
+  <script>
+    function selectDept(dept) {
+      // store in localStorage
+      localStorage.setItem('department', dept);
+      // navigate to complaint form page
+      window.location.href = "form.html"; // replace with your actual form page
+    }
+  </script>
+</body>
+</html>
